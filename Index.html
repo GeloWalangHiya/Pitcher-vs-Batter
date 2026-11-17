@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch and Bat Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: intro, a pitcher-and-batter scene, then a workspace (camera left, results right),
+     then step-by-step technique cards for pitching and batting. */
+  :root {
+    --bg: #eff3f1;
+    --surface: #ffffff;
+    --surface-2: #e4ebe7;
+    --ink: #14231b;
+    --muted: #4b5e53;
+    --line: #cfdad3;
+    --accent: #1b6b3a;
+    --accent-ink: #ffffff;
+    --accent-soft: #d6ecde;
+    --clay: #b5532a;
+    --dirt: #e3cdb4;
+    --grass: #cfe5d3;
+    --warn: #8a5207;
+    --radius: 18px;
+    --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1a14; --surface: #15271d; --surface-2: #1d352a; --ink: #e8f2ec; --muted: #9fb5a8;
+      --line: #28463a; --accent: #5fd08a; --accent-ink: #062414; --accent-soft: #1a4a30;
+      --clay: #f0875a; --dirt: #4a3a2c; --grass: #1f4a31; --warn: #f0b45c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1a14; --surface: #15271d; --surface-2: #1d352a; --ink: #e8f2ec; --muted: #9fb5a8;
+    --line: #28463a; --accent: #5fd08a; --accent-ink: #062414; --accent-soft: #1a4a30;
+    --clay: #f0875a; --dirt: #4a3a2c; --grass: #1f4a31; --warn: #f0b45c;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.55 var(--font-body); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 56px; }
+
+  header { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .chip { align-self: flex-start; font-size: 14px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+          color: var(--accent); background: var(--accent-soft); padding: 6px 12px; border-radius: 999px; }
+  h1 { font: 700 clamp(30px, 5vw, 46px)/1.1 var(--font-display); margin: 0; text-wrap: balance; }
+  .lede { margin: 0; max-width: 62ch; color: var(--muted); font-size: 19px; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  h2 { font: 700 22px/1.2 var(--font-display); margin: 0 0 14px; }
+
+  .scene { margin-bottom: 24px; padding: 0; overflow: hidden; }
+  .scene svg { display: block; width: 100%; height: auto; }
+  .scene .cap { padding: 14px 20px 18px; color: var(--muted); font-size: 16px; margin: 0; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .stage { position: relative; aspect-ratio: 1 / 1; width: 100%; background: var(--surface-2); border-radius: 14px; overflow: hidden; display: grid; place-items: center; }
+  .stage canvas, .stage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .idle { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; text-align: center; }
+  .idle svg { width: 64px; height: 64px; color: var(--accent); }
+  .idle p { margin: 0; color: var(--muted); max-width: 32ch; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  button, .btn { font: 600 17px/1 var(--font-body); min-height: 52px; padding: 0 22px; border-radius: 14px; cursor: pointer;
+    border: 2px solid var(--accent); background: transparent; color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+  button.primary { background: var(--accent); color: var(--accent-ink); }
+  button:hover, .btn:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .file-wrap:focus-within .btn { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  .status { margin: 14px 0 0; min-height: 1.6em; color: var(--muted); font-size: 16px; }
+  .status.error { color: var(--warn); font-weight: 500; }
+
+  .best { background: var(--accent-soft); border-radius: 14px; padding: 18px; margin-bottom: 18px; }
+  .best small { display: block; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 13px; }
+  .best strong { display: block; font: 700 clamp(28px, 4vw, 38px)/1.15 var(--font-display); margin-top: 4px; overflow-wrap: anywhere; }
+  .best span { color: var(--muted); font-size: 16px; }
+  ul.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .row-top { display: flex; justify-content: space-between; gap: 12px; font-weight: 500; }
+  .row-top span:first-child { overflow-wrap: anywhere; }
+  .pct { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .track { height: 12px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+  .fill { height: 100%; width: 0; background: var(--muted); border-radius: 999px; transition: width .15s linear; }
+  li.top .fill { background: var(--accent); }
+  li.top .row-top { font-weight: 600; }
+  li.top .pct { color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+
+  .section-title { font: 700 26px/1.2 var(--font-display); margin: 36px 0 14px; }
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 800px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  .step b { font: 700 18px/1.3 var(--font-display); display: block; margin-bottom: 4px; }
+  .step p { margin: 0; color: var(--muted); font-size: 16px; }
+
+  .tech { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 800px) { .tech { grid-template-columns: minmax(0, 1fr); } }
+  .tech h3 { font: 700 21px/1.2 var(--font-display); margin: 0 0 4px; }
+  .tech .sub { margin: 0 0 14px; color: var(--muted); font-size: 16px; }
+  ol.moves { list-style: none; counter-reset: m; margin: 0; padding: 0; display: grid; gap: 12px; }
+  ol.moves li { counter-increment: m; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: start; }
+  ol.moves li::before { content: counter(m); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+    font: 700 16px/1 var(--font-display); background: var(--accent); color: var(--accent-ink); }
+  ol.moves.clay li::before { background: var(--clay); color: #fff; }
+  ol.moves b { display: block; font-weight: 600; }
+  ol.moves span { color: var(--muted); font-size: 16px; }
+
+  footer { margin-top: 28px; color: var(--muted); font-size: 15px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+  footer a { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="chip" id="chip">Loading model details…</span>
+    <h1>Pitch and bat, with a model watching</h1>
+    <p class="lede" id="lede">This page runs a model you trained with Teachable Machine. Start the camera, show your pitching or batting motion, and see what the model thinks you are doing.</p>
+  </header>
+
+  <section class="panel scene" aria-labelledby="scene-h">
+    <svg viewBox="0 0 720 300" role="img" aria-labelledby="scene-t">
+      <title id="scene-t">A pitcher on the mound throws a ball toward a batter standing next to home plate.</title>
+      <rect width="720" height="300" fill="var(--grass)"/>
+      <path d="M0 262 Q360 236 720 262 L720 300 L0 300Z" fill="var(--dirt)"/>
+      <ellipse cx="150" cy="258" rx="74" ry="12" fill="var(--dirt)" stroke="var(--line)" stroke-width="2"/>
+      <rect x="120" y="254" width="60" height="7" rx="2" fill="var(--surface)"/>
+      <path d="M470 268 h46 l8 -8 v-9 h-62 v9z" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+      <path d="M170 92 Q330 30 468 188" fill="none" stroke="var(--clay)" stroke-width="3" stroke-dasharray="3 9" stroke-linecap="round"/>
+      <circle cx="468" cy="190" r="8" fill="var(--surface)" stroke="var(--clay)" stroke-width="2"/>
+
+      <g stroke="var(--ink)" stroke-width="9" stroke-linecap="round" fill="none">
+        <circle cx="150" cy="104" r="15" fill="var(--surface)" stroke-width="6"/>
+        <path d="M150 122 L150 180"/>
+        <path d="M150 180 L128 250"/>
+        <path d="M150 180 L184 232 L190 250"/>
+        <path d="M150 138 L182 156"/>
+        <path d="M150 138 L158 106 L166 88"/>
+      </g>
+      <path d="M130 100 a20 20 0 0 1 40 0z" fill="var(--accent)"/>
+      <circle cx="172" cy="84" r="8" fill="var(--surface)" stroke="var(--clay)" stroke-width="2"/>
+      <circle cx="184" cy="158" r="11" fill="var(--clay)"/>
+
+      <g stroke="var(--ink)" stroke-width="9" stroke-linecap="round" fill="none">
+        <circle cx="560" cy="120" r="15" fill="var(--surface)" stroke-width="6"/>
+        <path d="M560 138 L560 196"/>
+        <path d="M560 196 L540 262"/>
+        <path d="M560 196 L584 262"/>
+        <path d="M560 154 L588 146 L598 124"/>
+      </g>
+      <path d="M538 118 a22 22 0 0 1 44 0z" fill="var(--clay)"/>
+      <path d="M598 124 L636 52" stroke="var(--clay)" stroke-width="10" stroke-linecap="round"/>
+
+      <g font-family="var(--font-display)" font-weight="700" font-size="20" fill="var(--ink)" text-anchor="middle">
+        <text x="150" y="288">Pitcher</text>
+        <text x="570" y="288">Batter</text>
+      </g>
+    </svg>
+    <p class="cap">The pitcher throws from the mound. The batter stands beside home plate and swings at the ball as it arrives.</p>
+  </section>
+
+  <main class="grid">
+    <section class="panel" aria-labelledby="stage-h">
+      <h2 id="stage-h">Your input</h2>
+      <div class="stage" id="stage">
+        <div class="idle" id="idle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <p id="idle-text">Press Start to turn on your camera.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="primary" id="start" type="button">Start camera</button>
+        <button id="flip" type="button" hidden>Switch camera</button>
+        <span class="file-wrap" id="upload-wrap">
+          <input type="file" id="file" accept="image/*">
+          <label class="btn" for="file">Use a photo instead</label>
+        </span>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite">Nothing is running yet. Your camera and photos stay on your device.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="res-h">
+      <h2 id="res-h">What the model sees</h2>
+      <div class="best" aria-live="polite" aria-atomic="true">
+        <small>Best match</small>
+        <strong id="best-label">Waiting…</strong>
+        <span id="best-note">Results appear here as soon as the model has something to look at.</span>
+      </div>
+      <ul class="bars" id="bars"></ul>
+    </section>
+  </main>
+
+  <h2 class="section-title">How to use this page</h2>
+  <section class="steps" aria-label="How to use this page">
+    <div class="step"><b>1. Start</b><p id="s1">Press Start and allow camera access when your browser asks.</p></div>
+    <div class="step"><b>2. Get in view</b><p id="s2">Step back so your whole body fits in the picture. Good light and a plain background help.</p></div>
+    <div class="step"><b>3. Move and read</b><p>Do your pitch or swing. The longest bar is the model's best guess, and a higher percentage means it is more sure.</p></div>
+  </section>
+
+  <h2 class="section-title">The motions, step by step</h2>
+  <section class="tech" aria-label="Pitching and batting steps">
+    <div class="panel">
+      <h3>Pitching</h3>
+      <p class="sub">Five moves, in this order.</p>
+      <ol class="moves">
+        <li><div><b>Set your stance</b><span>Stand tall on the mound, feet shoulder width apart, ball hidden in your glove.</span></div></li>
+        <li><div><b>Wind up</b><span>Lift your front knee while your hands stay together at your chest.</span></div></li>
+        <li><div><b>Stride</b><span>Step toward the batter and bring the ball back with your throwing arm.</span></div></li>
+        <li><div><b>Release</b><span>Whip your arm forward and let go of the ball out in front of you.</span></div></li>
+        <li><div><b>Follow through</b><span>Let your arm swing across your body and finish balanced, ready to field.</span></div></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>Batting</h3>
+      <p class="sub">Five moves, in this order.</p>
+      <ol class="moves clay">
+        <li><div><b>Take your stance</b><span>Stand beside the plate, knees slightly bent, bat held up near your back shoulder.</span></div></li>
+        <li><div><b>Load</b><span>Shift your weight to your back foot and keep your eyes on the pitcher.</span></div></li>
+        <li><div><b>Stride</b><span>Take a small step forward as the ball is thrown, keeping your hands back.</span></div></li>
+        <li><div><b>Swing</b><span>Turn your hips first, then your shoulders, and bring the bat through the ball.</span></div></li>
+        <li><div><b>Follow through</b><span>Finish with the bat wrapped over your shoulder and your weight on your front foot.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <footer>
+    <span>Built with Teachable Machine and TensorFlow.js.</span>
+    <a href="https://teachablemachine.withgoogle.com/models/OGyMG6Bm5/" target="_blank" rel="noopener">Open the original model</a>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const BASE = "https://teachablemachine.withgoogle.com/models/OGyMG6Bm5/";
+  const MODEL_JSON = BASE + "model.json";
+  const META_JSON = BASE + "metadata.json";
+  const TF = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js";
+  const LIBS = {
+    image: [TF, "https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"],
+    pose:  [TF, "https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"],
+    audio: [TF, "https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"]
+  };
+  const NAMES = { image: "Image model", pose: "Pose model", audio: "Sound model" };
+
+  const $ = (id) => document.getElementById(id);
+  const stage = $("stage"), idle = $("idle"), startBtn = $("start"), flipBtn = $("flip"),
+        fileIn = $("file"), uploadWrap = $("upload-wrap"), statusEl = $("status"),
+        barsEl = $("bars"), bestLabel = $("best-label"), bestNote = $("best-note");
+
+  const state = { mode: "image", labels: [], model: null, webcam: null, running: false, facing: "user", rows: [] };
+
+  function setStatus(msg, isError) { statusEl.textContent = msg; statusEl.classList.toggle("error", !!isError); }
+
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = src; s.onload = res; s.onerror = () => rej(new Error("script"));
+      document.head.appendChild(s);
+    });
+  }
+  async function loadLibs(mode) { for (const src of LIBS[mode]) await loadScript(src); }
+
+  function buildRows(labels) {
+    state.labels = labels;
+    barsEl.replaceChildren();
+    state.rows = labels.map((name) => {
+      const li = document.createElement("li");
+      li.innerHTML = '<div class="row-top"><span></span><span class="pct">0%</span></div><div class="track"><div class="fill"></div></div>';
+      li.querySelector("span").textContent = name;
+      barsEl.appendChild(li);
+      return { li, pct: li.querySelector(".pct"), fill: li.querySelector(".fill") };
+    });
+  }
+
+  let lastTop = "";
+  function render(preds) {
+    if (!state.rows.length) buildRows(preds.map((p) => p.className));
+    let top = 0;
+    preds.forEach((p, i) => { if (p.probability > preds[top].probability) top = i; });
+    preds.forEach((p, i) => {
+      const r = state.rows[i]; if (!r) return;
+      const v = Math.round(p.probability * 100);
+      r.fill.style.width = v + "%"; r.pct.textContent = v + "%";
+      r.li.classList.toggle("top", i === top);
+    });
+    const best = preds[top], v = Math.round(best.probability * 100);
+    if (best.className !== lastTop) { bestLabel.textContent = best.className; lastTop = best.className; }
+    bestNote.textContent = v >= 70 ? v + "% sure."
+      : v >= 40 ? v + "% sure. Try better light or step back so your whole body is in view."
+      : "Not sure yet. Try better light, a plainer background, or a different angle.";
+  }
+
+  async function ensureModel() {
+    if (state.model) return;
+    setStatus("Loading the model. This can take a few seconds the first time…");
+    await loadLibs(state.mode);
+    if (state.mode === "image") state.model = await tmImage.load(MODEL_JSON, META_JSON);
+    else if (state.mode === "pose") state.model = await tmPose.load(MODEL_JSON, META_JSON);
+    else {
+      const rec = speechCommands.create("BROWSER_FFT", undefined, MODEL_JSON, META_JSON);
+      await rec.ensureModelLoaded();
+      state.model = rec;
+      if (!state.rows.length) buildRows(rec.wordLabels());
+    }
+  }
+
+  async function predict(el) {
+    if (state.mode === "pose") {
+      const { posenetOutput } = await state.model.estimatePose(el);
+      return state.model.predict(posenetOutput);
+    }
+    return state.model.predict(el);
+  }
+
+  function friendlyError(e) {
+    const n = e && e.name;
+    if (n === "NotAllowedError" || n === "SecurityError") return "Access was blocked. Click the camera or lock icon in your browser's address bar, allow access, then press Start again.";
+    if (n === "NotFoundError" || n === "OverconstrainedError") return "No camera or microphone was found. You can use a photo instead.";
+    if (e && e.message === "script") return "The model tools could not load. Check your internet connection and try again.";
+    return "Something went wrong while loading the model. Check your internet connection and try again.";
+  }
+
+  function showMedia(node) { stage.querySelectorAll("canvas, img").forEach((n) => n.remove()); idle.hidden = !!node; if (node) stage.appendChild(node); }
+
+  async function start() {
+    startBtn.disabled = true;
+    try {
+      await ensureModel();
+      if (state.mode === "audio") {
+        state.model.listen((r) => render(Array.from(r.scores).map((s, i) => ({ className: state.labels[i], probability: s }))),
+          { includeSpectrogram: false, probabilityThreshold: 0, invokeCallbackOnNoiseAndUnknown: true, overlapFactor: 0.5 });
+        idle.querySelector("p").textContent = "Listening… make a sound near your microphone.";
+      } else {
+        const lib = state.mode === "pose" ? tmPose : tmImage;
+        const wc = new lib.Webcam(480, 480, state.facing === "user");
+        await wc.setup({ facingMode: state.facing });
+        await wc.play();
+        wc.canvas.setAttribute("aria-label", "Live camera view");
+        state.webcam = wc; showMedia(wc.canvas);
+        flipBtn.hidden = false;
+      }
+      state.running = true;
+      startBtn.textContent = "Stop"; startBtn.classList.remove("primary");
+      setStatus(state.mode === "audio" ? "Listening." : "Camera is on. The model is looking.");
+      if (state.mode !== "audio") loop();
+    } catch (e) {
+      console.error(e); setStatus(friendlyError(e), true);
+    } finally { startBtn.disabled = false; }
+  }
+
+  async function loop() {
+    if (!state.running || !state.webcam) return;
+    state.webcam.update();
+    try { render(await predict(state.webcam.canvas)); } catch (e) { console.error(e); }
+    requestAnimationFrame(loop);
+  }
+
+  function stop(keepMedia) {
+    state.running = false;
+    if (state.mode === "audio" && state.model && state.model.isListening()) state.model.stopListening();
+    if (state.webcam) { state.webcam.stop(); state.webcam = null; }
+    if (!keepMedia) { showMedia(null); idle.querySelector("p").textContent = state.mode === "audio" ? "Press Start to listen." : "Press Start to turn on your camera."; }
+    flipBtn.hidden = true;
+    startBtn.textContent = state.mode === "audio" ? "Start listening" : "Start camera"; startBtn.classList.add("primary");
+  }
+
+  startBtn.addEventListener("click", () => (state.running ? (stop(), setStatus("Stopped. Press Start to run it again.")) : start()));
+
+  flipBtn.addEventListener("click", async () => {
+    state.facing = state.facing === "user" ? "environment" : "user";
+    stop(true); await start();
+  });
+
+  fileIn.addEventListener("change", async () => {
+    const f = fileIn.files && fileIn.files[0]; if (!f) return;
+    if (state.running) stop(true);
+    const img = new Image(); img.alt = "Your chosen photo";
+    img.src = URL.createObjectURL(f);
+    try {
+      await img.decode();
+      showMedia(img);
+      await ensureModel();
+      render(await predict(img));
+      setStatus("Done. This is the model's reading of your photo.");
+    } catch (e) { console.error(e); setStatus(friendlyError(e), true); }
+    fileIn.value = "";
+  });
+
+  // Learn what kind of model this is, and show its classes before anything runs.
+  fetch(META_JSON).then((r) => r.json()).then((meta) => {
+    const pkg = String(meta.packageName || "");
+    state.mode = pkg.includes("pose") ? "pose" : pkg.includes("audio") ? "audio" : "image";
+    $("chip").textContent = NAMES[state.mode];
+    const labels = meta.labels || meta.wordLabels || [];
+    if (labels.length) buildRows(labels);
+    if (state.mode === "audio") {
+      startBtn.textContent = "Start listening"; uploadWrap.hidden = true;
+      idle.querySelector("p").textContent = "Press Start to listen.";
+      $("lede").textContent = "This page runs a sound model you trained with Teachable Machine. Start listening, make a sound, and read what it hears.";
+      $("s1").textContent = "Press Start and allow microphone access when your browser asks.";
+      $("s2").textContent = "Stay close to your microphone. Less background noise helps.";
+    }
+  }).catch(() => { $("chip").textContent = "Teachable Machine model"; });
+})();
+</script>
+</body>
+</html>
